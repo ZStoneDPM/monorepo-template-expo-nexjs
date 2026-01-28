@@ -1,0 +1,409 @@
+---
+title: Realm Database Rules
+description: Realm Database patterns, best practices, and conventions for One Percent Better
+globs:
+    - "**/models/**/*.ts"
+    - "**/services/**/*.ts"
+alwaysApply: false
+---
+
+This document provides comprehensive guidance on using Realm Database in the One Percent Better React Native application.
+
+## Realm Schema Definition
+
+### Schema Structure
+
+- Define TypeScript interfaces for Realm models
+- Extend `Realm.Object` for Realm classes
+- Use descriptive property names
+- Include all required fields from the data model
+
+```typescript
+// Good - Complete Realm schema with TypeScript
+import Realm from 'realm';
+
+export interface ITask {
+	_id: Realm.BSON.ObjectId;
+	title: string;
+	description?: string;
+	action: string;
+	type: 'daily' | 'weekly' | 'single';
+	time: string;
+	daysOfWeek?: number[]; // 0-6, Sunday-Saturday for weekly tasks
+	date?: Date; // For single events
+	isActive: boolean;
+	createdAt: Date;
+	updatedAt: Date;
+}
+
+export class Task extends Realm.Object<Task> implements ITask {
+	_id!: Realm.BSON.ObjectId;
+	title!: string;
+	description?: string;
+	action!: string;
+	type!: 'daily' | 'weekly' | 'single';
+	time!: string;
+	daysOfWeek?: number[];
+	date?: Date;
+	isActive!: boolean;
+	createdAt!: Date;
+	updatedAt!: Date;
+
+	static schema: Realm.ObjectSchema = {
+		name: 'Task',
+		primaryKey: '_id',
+		properties: {
+			_id: 'objectId',
+			title: 'string',
+			description: 'string?',
+			action: 'string',
+			type: 'string',
+			time: 'string',
+			daysOfWeek: 'int[]?',
+			date: 'date?',
+			isActive: 'bool',
+			createdAt: 'date',
+			updatedAt: 'date',
+		},
+	};
+}
+```
+
+### Schema Best Practices
+
+- Always include `_id` as primary key (use `Realm.BSON.ObjectId`)
+- Use optional properties (`?`) for fields that can be null
+- Include `createdAt` and `updatedAt` timestamps
+- Use appropriate Realm property types (`string`, `int`, `bool`, `date`, `objectId`, etc.)
+- Use arrays for collections (`int[]`, `string[]`, etc.)
+
+## Realm Initialization
+
+### Database Setup
+
+- Initialize Realm with all schemas
+- Use a singleton pattern for Realm instance
+- Handle Realm errors gracefully
+
+```typescript
+// Good - Realm initialization
+import Realm from 'realm';
+import { Task, TaskCompletion, Settings } from '@/models';
+
+let realmInstance: Realm | null = null;
+
+export async function getRealm(): Promise<Realm> {
+	if (realmInstance && !realmInstance.isClosed) {
+		return realmInstance;
+	}
+
+	realmInstance = await Realm.open({
+		schema: [Task, TaskCompletion, Settings],
+		schemaVersion: 1,
+	});
+
+	return realmInstance;
+}
+
+export function closeRealm(): void {
+	if (realmInstance && !realmInstance.isClosed) {
+		realmInstance.close();
+		realmInstance = null;
+	}
+}
+```
+
+## CRUD Operations
+
+### Create Operations
+
+- Always use write transactions for modifications
+- Generate `_id` using `new Realm.BSON.ObjectId()`
+- Set `createdAt` and `updatedAt` timestamps
+- Handle errors in write transactions
+
+```typescript
+// Good - Creating a task
+export async function createTask(
+	realm: Realm,
+	taskData: Omit<ITask, '_id' | 'createdAt' | 'updatedAt'>
+): Promise<Task> {
+	let task: Task;
+	realm.write(() => {
+		task = realm.create<Task>('Task', {
+			...taskData,
+			_id: new Realm.BSON.ObjectId(),
+			createdAt: new Date(),
+			updatedAt: new Date(),
+		});
+	});
+	return task!;
+}
+```
+
+### Read Operations
+
+- Use `realm.objects<T>()` for queries
+- Convert Realm Results to arrays when needed
+- Use filters for specific queries
+
+```typescript
+// Good - Reading tasks
+export function getTasks(realm: Realm): Task[] {
+	const tasks = realm.objects<Task>('Task');
+	return Array.from(tasks);
+}
+
+export function getActiveTasks(realm: Realm): Task[] {
+	const tasks = realm.objects<Task>('Task').filtered('isActive == true');
+	return Array.from(tasks);
+}
+
+export function getTaskById(realm: Realm, id: string): Task | null {
+	const task = realm.objectForPrimaryKey<Task>('Task', new Realm.BSON.ObjectId(id));
+	return task || null;
+}
+```
+
+### Update Operations
+
+- Always use write transactions
+- Update `updatedAt` timestamp
+- Validate data before updating
+
+```typescript
+// Good - Updating a task
+export function updateTask(
+	realm: Realm,
+	taskId: string,
+	updates: Partial<Omit<ITask, '_id' | 'createdAt'>>
+): Task | null {
+	const task = realm.objectForPrimaryKey<Task>('Task', new Realm.BSON.ObjectId(taskId));
+	if (!task) {
+		return null;
+	}
+
+	realm.write(() => {
+		Object.assign(task, updates, { updatedAt: new Date() });
+	});
+
+	return task;
+}
+```
+
+### Delete Operations
+
+- Always use write transactions
+- Check if object exists before deleting
+- Handle cascading deletes if needed
+
+```typescript
+// Good - Deleting a task
+export function deleteTask(realm: Realm, taskId: string): boolean {
+	const task = realm.objectForPrimaryKey<Task>('Task', new Realm.BSON.ObjectId(taskId));
+	if (!task) {
+		return false;
+	}
+
+	realm.write(() => {
+		realm.delete(task);
+	});
+
+	return true;
+}
+```
+
+## Query Patterns
+
+### Filtering
+
+- Use `filtered()` for complex queries
+- Use indexed properties for performance
+- Combine filters with `AND`/`OR` when needed
+
+```typescript
+// Good - Filtering tasks
+export function getTasksByType(realm: Realm, type: 'daily' | 'weekly' | 'single'): Task[] {
+	const tasks = realm.objects<Task>('Task').filtered('type == $0', type);
+	return Array.from(tasks);
+}
+
+export function getTasksForDay(realm: Realm, dayOfWeek: number): Task[] {
+	const tasks = realm
+		.objects<Task>('Task')
+		.filtered('type == "weekly" AND daysOfWeek CONTAINS $0', dayOfWeek);
+	return Array.from(tasks);
+}
+```
+
+### Sorting
+
+- Use `sorted()` for ordered results
+- Sort by indexed properties when possible
+
+```typescript
+// Good - Sorting tasks
+export function getTasksSortedByDate(realm: Realm): Task[] {
+	const tasks = realm.objects<Task>('Task').sorted('createdAt', true); // descending
+	return Array.from(tasks);
+}
+```
+
+## Performance Best Practices
+
+### Indexing
+
+- Add indexes to frequently queried properties
+- Use indexes for properties used in filters
+
+```typescript
+// Good - Indexed property
+static schema: Realm.ObjectSchema = {
+	name: 'Task',
+	primaryKey: '_id',
+	properties: {
+		_id: 'objectId',
+		title: 'string',
+		type: 'string',
+		isActive: 'bool',
+		// ...
+	},
+	indexedProperties: ['type', 'isActive'], // Index frequently queried fields
+};
+```
+
+### Batch Operations
+
+- Batch write operations when possible
+- Use single write transaction for multiple operations
+
+```typescript
+// Good - Batch operations
+export function createMultipleTasks(realm: Realm, tasksData: Omit<ITask, '_id' | 'createdAt' | 'updatedAt'>[]): Task[] {
+	const tasks: Task[] = [];
+	realm.write(() => {
+		for (const taskData of tasksData) {
+			const task = realm.create<Task>('Task', {
+				...taskData,
+				_id: new Realm.BSON.ObjectId(),
+				createdAt: new Date(),
+				updatedAt: new Date(),
+			});
+			tasks.push(task);
+		}
+	});
+	return tasks;
+}
+```
+
+### Memory Management
+
+- Close Realm instances when done
+- Avoid holding references to Realm objects outside transactions
+- Convert to plain objects when passing data around
+
+```typescript
+// Good - Converting to plain objects
+export function getTasksAsPlainObjects(realm: Realm): ITask[] {
+	const tasks = realm.objects<Task>('Task');
+	return Array.from(tasks).map(task => ({
+		_id: task._id,
+		title: task.title,
+		description: task.description,
+		// ... other properties
+	}));
+}
+```
+
+## Migrations
+
+### Schema Migrations
+
+- Increment schema version when changing schemas
+- Provide migration function for data transformations
+- Test migrations thoroughly
+
+```typescript
+// Good - Schema migration
+export async function getRealm(): Promise<Realm> {
+	if (realmInstance && !realmInstance.isClosed) {
+		return realmInstance;
+	}
+
+	realmInstance = await Realm.open({
+		schema: [Task, TaskCompletion, Settings],
+		schemaVersion: 2, // Increment when schema changes
+		migration: (oldRealm, newRealm) => {
+			// Migration logic for schema version 2
+			if (oldRealm.schemaVersion < 2) {
+				const oldTasks = oldRealm.objects<Task>('Task');
+				const newTasks = newRealm.objects<Task>('Task');
+				
+				for (let i = 0; i < oldTasks.length; i++) {
+					newTasks[i].updatedAt = oldTasks[i].createdAt;
+				}
+			}
+		},
+	});
+
+	return realmInstance;
+}
+```
+
+## Testing Realm Operations
+
+### Mocking Realm
+
+- Use in-memory Realm instances for testing
+- Clean up Realm instances after tests
+- Seed test data in `beforeEach` or `beforeAll`
+
+```typescript
+// Good - Testing Realm operations
+import Realm from 'realm';
+
+describe('tasksService', () => {
+	let realm: Realm;
+
+	beforeAll(async () => {
+		realm = await Realm.open({
+			schema: [Task],
+			inMemory: true, // Use in-memory database for tests
+		});
+	});
+
+	afterAll(() => {
+		realm.close();
+	});
+
+	beforeEach(() => {
+		realm.write(() => {
+			realm.deleteAll();
+		});
+	});
+
+	it('should create a task', async () => {
+		const task = await createTask(realm, {
+			title: 'Test Task',
+			action: 'Take vitamins',
+			type: 'daily',
+			time: '09:00',
+			isActive: true,
+		});
+
+		expect(task.title).toBe('Test Task');
+		expect(task._id).toBeDefined();
+	});
+});
+```
+
+## Best Practices Summary
+
+1. **Schemas**: Always define TypeScript interfaces, extend `Realm.Object`, include timestamps
+2. **Initialization**: Use singleton pattern, handle errors, close instances properly
+3. **CRUD**: Always use write transactions, generate ObjectIds, update timestamps
+4. **Queries**: Use `filtered()` and `sorted()`, convert Results to arrays when needed
+5. **Performance**: Add indexes, batch operations, convert to plain objects when needed
+6. **Migrations**: Increment schema version, provide migration functions, test thoroughly
+7. **Testing**: Use in-memory Realm, clean up after tests, seed test data properly
+8. **Error Handling**: Handle Realm errors gracefully, validate data before operations

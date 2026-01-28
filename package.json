@@ -1,0 +1,16 @@
+{
+  "name": "expo-next-webview-monorepo",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev:expo": "pnpm --filter expo-app start",
+    "dev:next": "pnpm --filter next-web dev",
+    "build": "pnpm --filter bridge-types build && pnpm --filter next-web build",
+    "build:next": "pnpm --filter next-web build",
+    "build:bridge": "pnpm --filter bridge-types build"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}

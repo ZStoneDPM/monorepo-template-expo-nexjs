@@ -1,0 +1,206 @@
+---
+title: Self-Correction and Rule Improvement
+description: Instructions for identifying challenges and proposing improvements to project rules
+alwaysApply: true
+---
+
+This document defines how the AI agent should identify challenges during task execution and propose improvements to its own rules to prevent future issues.
+
+## Purpose
+
+When encountering challenges, errors, or repeated patterns of mistakes, the agent should:
+
+1. Analyze the root cause
+2. Determine if a rule update would prevent the issue
+3. Propose specific rule improvements
+4. Track challenges for review
+
+## When to Identify Challenges
+
+The agent should identify and analyze challenges in the following situations:
+
+### Task Failures
+
+- **Any error that prevents task completion**: Syntax errors, runtime errors, test failures, lint errors
+- **Incorrect assumptions**: When code doesn't match project patterns or conventions
+- **Missing context**: When information needed to complete a task isn't available in rules
+
+### Repeated Patterns
+
+- **Same mistake multiple times**: If the same type of error occurs across different tasks
+- **Pattern recognition**: When the agent identifies a gap between rules and actual codebase patterns
+- **Consistent misunderstandings**: When rules are ambiguous or lead to incorrect interpretations
+
+### Explicit Requests
+
+- **User asks for rule updates**: When the user explicitly requests rule improvements based on a challenge
+- **Post-task review**: After completing a task, if the user indicates rules could be improved
+
+### Pattern Recognition
+
+- **Codebase analysis**: When examining code, identify patterns not documented in rules
+- **Framework-specific issues**: React hooks, React Native patterns, Realm usage that aren't covered
+- **Project-specific conventions**: Patterns unique to this codebase that should be codified
+
+## Root Cause Analysis
+
+When a challenge occurs, analyze:
+
+1. **Is there a missing rule?**
+    - Does the codebase follow a pattern not documented in rules?
+    - Is there a project-specific convention that should be documented?
+
+2. **Is an existing rule unclear?**
+    - Could the rule be interpreted multiple ways?
+    - Does the rule need more examples or clarification?
+
+3. **Are rules conflicting?**
+    - Do different rule files contradict each other?
+    - Is there ambiguity about which rule takes precedence?
+
+4. **Is the rule incomplete?**
+    - Does the rule cover the general case but miss edge cases?
+    - Are there exceptions or special cases not mentioned?
+
+## How to Propose Rule Updates
+
+### Inline Proposals
+
+When a challenge occurs during a task, present the proposal in the chat with:
+
+1. **Challenge Summary**: Brief description of what went wrong
+2. **Root Cause**: Why the challenge occurred (missing rule, unclear rule, etc.)
+3. **Proposed Rule Update**: Exact text to add/modify in the rule file
+4. **Location**: Which rule file and section should be updated
+5. **Rationale**: Why this rule would prevent the issue
+
+Example format:
+
+```
+## Rule Improvement Proposal
+
+**Challenge**: Encountered React hook dependency array issue when using useEffect with async functions.
+
+**Root Cause**: Missing rule about proper dependency array handling for async operations in useEffect.
+
+**Proposed Update**:
+- File: `.cursor/rules/common-rules.mdc`
+- Section: "Performance Best Practices" → "React Hooks"
+- Add rule: "When using async functions in useEffect, ensure all dependencies are included in the dependency array, or use useCallback to memoize the async function."
+
+**Rationale**: This would prevent common React hooks violations that cause lint errors and potential bugs.
+```
+
+### File Tracking
+
+After proposing inline, append to `.cursor/rules/rule-improvements.md` with:
+
+- **Timestamp**: When the challenge occurred
+- **Task Context**: What task was being performed
+- **Challenge Details**: Full description of the issue
+- **Error Messages**: Any error messages or logs
+- **Root Cause Analysis**: Detailed analysis
+- **Proposed Solution**: Exact rule text and location
+- **Status**: `pending`, `applied`, or `rejected`
+
+## Rule Update Format
+
+When proposing rule updates, provide:
+
+1. **Exact file path**: Which `.cursor/rules/*.mdc` file to update
+2. **Section location**: Where in the file to add/modify (section heading)
+3. **Proposed text**: Complete text to add, including:
+    - Rule statement
+    - Code examples (good/bad patterns)
+    - Context and rationale
+4. **Formatting**: Follow existing rule file format (markdown, code blocks, etc.)
+
+## Implementation Guidelines
+
+### Before Proposing
+
+- Verify the challenge isn't due to a simple mistake or misunderstanding
+- Check if existing rules already cover the issue (may need clarification instead)
+- Ensure the proposed rule is specific and actionable
+- Consider if the rule applies broadly or is task-specific
+
+### Rule Quality Standards
+
+Proposed rules should:
+
+- Be **specific**: Clear, actionable guidance
+- Be **necessary**: Address a real, recurring issue
+- Be **consistent**: Match the style and format of existing rules
+- Include **examples**: Show good and bad patterns when applicable
+- Be **maintainable**: Won't become outdated quickly
+
+### When NOT to Propose
+
+Do NOT propose rule updates for:
+
+- One-off mistakes that are unlikely to recur
+- Issues that are already clearly covered by existing rules
+- Project-specific quirks that don't represent patterns
+- Temporary workarounds or hacks
+
+## Tracking and Review
+
+### Logging to rule-improvements.md
+
+Always log challenges to `.cursor/rules/rule-improvements.md` using the structured format defined in that file. This creates an audit trail and allows for:
+
+- Review of patterns over time
+- Prioritization of rule updates
+- Tracking which rules have been applied
+- Learning from past challenges
+
+### Status Management
+
+- **pending**: Proposal made, awaiting review/application
+- **applied**: Rule has been added to the appropriate rule file
+- **rejected**: Proposal reviewed but not implemented (include reason)
+
+### Applying Rule Updates
+
+When the user approves a rule update:
+
+1. Update the appropriate `.cursor/rules/*.mdc` file
+2. Update the status in `rule-improvements.md` to `applied`
+3. Add a note about when it was applied
+4. Ensure the new rule follows existing formatting conventions
+
+## Examples of Valid Challenges
+
+### Example 1: Missing React Hook Rule
+
+**Challenge**: Used `useEffect` with async function but forgot to handle cleanup or dependencies properly.
+
+**Analysis**: Missing rule about async functions in useEffect.
+
+**Proposal**: Add rule about useEffect async patterns with examples.
+
+### Example 2: Unclear Import Rule
+
+**Challenge**: Confusion about when to use `@/` alias vs relative imports.
+
+**Analysis**: Rule exists but could be clearer with more examples.
+
+**Proposal**: Enhance existing import rule with more specific examples for edge cases.
+
+### Example 3: TypeScript-Related Issue
+
+**Challenge**: Attempted to use TypeScript syntax in a JavaScript-only project.
+
+**Analysis**: Rule exists but may not be prominent enough.
+
+**Proposal**: Add prominent reminder at top of relevant rule file or add to common-rules.
+
+## Summary
+
+- Identify challenges during task execution
+- Analyze root causes (missing, unclear, conflicting, or incomplete rules)
+- Propose specific, actionable rule updates with exact text and location
+- Log all proposals to `rule-improvements.md` for tracking
+- Present proposals inline during tasks for immediate context
+- Wait for user approval before applying rule updates
+- Maintain high quality standards for proposed rules

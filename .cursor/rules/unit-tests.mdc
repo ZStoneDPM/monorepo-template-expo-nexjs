@@ -1,0 +1,355 @@
+---
+title: Unit Testing Rules
+description: Rules for writing Jest unit tests with React Native Testing Library
+globs:
+    - '**/*.test.ts'
+    - '**/*.test.tsx'
+alwaysApply: false
+---
+
+This document contains rules for writing unit tests using Jest and React Native Testing Library. For
+general TypeScript rules, refer to the project-level TypeScript rules document.
+
+## Test File Organization
+
+### File Naming and Location
+
+- Test files must have `.test.ts` or `.test.tsx` extension
+- Place test files next to the code they test
+- Test file name should match the file being tested
+- Aim for full coverage of critical flows
+
+```plaintext
+// Good - Test file next to source file
+src/
+  components/
+    TaskCard.tsx
+    TaskCard.test.tsx
+  utils/
+    formatDate.ts
+    formatDate.test.ts
+```
+
+```typescript
+// Good - File names match
+TaskCard.tsx → TaskCard.test.tsx
+formatDate.ts → formatDate.test.ts
+tasksService.ts → tasksService.test.ts
+
+// Bad - File names don't match
+TaskCard.tsx → taskcardTest.tsx
+formatDate.ts → format-date.test.ts
+```
+
+## Test Structure
+
+### Describe Blocks
+
+- Use `describe` blocks to group related tests
+- Use nested `describe` blocks for testing different methods or scenarios
+- Describe block names should identify the unit being tested
+- Use clear, descriptive names
+
+```typescript
+// Good - Clear describe organization
+describe('TaskCard', () => {
+    it('should render a task', () => {});
+    it('should display task title', () => {});
+});
+
+// Good - Nested describes for helpers
+describe('utils', () => {
+    describe('formatDate', () => {
+        it('should format date correctly', () => {});
+        it('should handle invalid dates', () => {});
+    });
+
+    describe('validateEmail', () => {
+        it('should return true for valid email', () => {});
+        it('should return false for invalid email', () => {});
+    });
+});
+
+// Good - Nested describes for service functions
+describe('tasksService', () => {
+    describe('getTasks', () => {
+        it('should return all tasks from Realm', async () => {});
+        it('should return empty array when no tasks', async () => {});
+    });
+
+    describe('createTask', () => {
+        it('should create a new task in Realm', async () => {});
+        it('should throw error for invalid task data', async () => {});
+    });
+});
+
+// Bad - Vague or unclear describe blocks
+describe('Tests', () => {});
+describe('Component', () => {});
+```
+
+### It Blocks
+
+- Use `it` blocks for individual test cases
+- Test names should clearly describe expected behavior
+- Start with "should" for behavior expectations
+- Be specific about what is being tested
+
+```typescript
+// Good - Descriptive test names
+it('should render task title', () => {});
+it('should call onComplete when complete button is pressed', () => {});
+it('should return formatted date string', () => {});
+it('should throw error when task not found', () => {});
+
+// Bad - Vague test names
+it('works', () => {});
+it('test task', () => {});
+it('api call', () => {});
+```
+
+## Setup and Teardown
+
+### beforeEach and afterAll
+
+- Use `beforeEach` to clear mocks before each test
+- Use `beforeAll` for one-time setup (e.g., mocking console methods, Realm setup)
+- Use `afterAll` to clean up mocks after all tests
+- Always clean up to prevent test pollution
+
+```typescript
+const mockConsoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+beforeEach(() => {
+    jest.clearAllMocks();
+});
+
+afterAll(() => {
+    mockConsoleError.mockRestore();
+});
+```
+
+## React Native Component Testing
+
+### Testing Components
+
+- Use `render` from `@testing-library/react-native`
+- Use `screen` queries to find elements
+- Test component rendering with different props
+- Test user interactions (press, text input, etc.)
+
+```typescript
+// Good - Testing component rendering
+import { render, screen, fireEvent } from '@testing-library/react-native';
+import TaskCard from '../TaskCard';
+
+describe('TaskCard', () => {
+    it('should render task title', () => {
+        const task = { id: '1', title: 'Test Task', completed: false };
+        render(<TaskCard task={task} onComplete={jest.fn()} />);
+        expect(screen.getByText('Test Task')).toBeTruthy();
+    });
+
+    it('should call onComplete when button is pressed', () => {
+        const onComplete = jest.fn();
+        const task = { id: '1', title: 'Test Task', completed: false };
+        render(<TaskCard task={task} onComplete={onComplete} />);
+        
+        fireEvent.press(screen.getByText('Complete'));
+        expect(onComplete).toHaveBeenCalledWith('1');
+    });
+});
+```
+
+### React Native Queries
+
+- Use `getByText`, `getByTestId`, `getByPlaceholderText` for queries
+- Use `queryBy*` when element might not exist
+- Use `findBy*` for async elements
+
+```typescript
+// Good - Using appropriate queries
+const { getByText, getByTestId, queryByText } = render(<TaskCard {...props} />);
+
+// Element should exist
+expect(getByText('Task Title')).toBeTruthy();
+
+// Element might not exist
+expect(queryByText('Optional Text')).toBeNull();
+
+// Element with test ID
+expect(getByTestId('complete-button')).toBeTruthy();
+```
+
+## Realm Database Testing
+
+### Mocking Realm
+
+- Mock Realm database in tests
+- Create in-memory Realm instances for testing
+- Clean up Realm instances after tests
+
+```typescript
+// Good - Mocking Realm
+import Realm from 'realm';
+
+jest.mock('realm', () => {
+    const actualRealm = jest.requireActual('realm');
+    return {
+        ...actualRealm,
+        open: jest.fn(),
+    };
+});
+
+describe('tasksService', () => {
+    let realm: Realm;
+
+    beforeAll(async () => {
+        realm = await Realm.open({
+            schema: [Task],
+            inMemory: true,
+        });
+    });
+
+    afterAll(() => {
+        realm.close();
+    });
+
+    beforeEach(() => {
+        realm.write(() => {
+            realm.deleteAll();
+        });
+    });
+
+    it('should get all tasks', async () => {
+        realm.write(() => {
+            realm.create('Task', { title: 'Test Task', type: 'daily' });
+        });
+
+        const tasks = await getTasks(realm);
+        expect(tasks).toHaveLength(1);
+        expect(tasks[0].title).toBe('Test Task');
+    });
+});
+```
+
+## Expo Modules Testing
+
+### Mocking Expo Modules
+
+- Mock Expo modules (Notifications, etc.) in tests
+- Provide mock implementations that match the API
+
+```typescript
+// Good - Mocking Expo Notifications
+jest.mock('expo-notifications', () => ({
+    scheduleNotificationAsync: jest.fn(),
+    cancelNotificationAsync: jest.fn(),
+    getPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted' })),
+    requestPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted' })),
+}));
+
+import * as Notifications from 'expo-notifications';
+
+describe('notificationService', () => {
+    it('should schedule notification', async () => {
+        await scheduleTaskNotification({ title: 'Test', date: new Date() });
+        expect(Notifications.scheduleNotificationAsync).toHaveBeenCalled();
+    });
+});
+```
+
+## React Navigation Testing
+
+### Mocking Navigation
+
+- Mock React Navigation in component tests
+- Provide mock navigation and route props
+
+```typescript
+// Good - Mocking React Navigation
+import { NavigationContainer } from '@react-navigation/native';
+
+const mockNavigation = {
+    navigate: jest.fn(),
+    goBack: jest.fn(),
+    setOptions: jest.fn(),
+};
+
+const mockRoute = {
+    params: {},
+};
+
+describe('HomeScreen', () => {
+    it('should render task list', () => {
+        render(
+            <NavigationContainer>
+                <HomeScreen navigation={mockNavigation as any} route={mockRoute as any} />
+            </NavigationContainer>
+        );
+        expect(screen.getByText('Tasks')).toBeTruthy();
+    });
+});
+```
+
+## Async Testing
+
+### Testing Async Operations
+
+- Use `async/await` for async tests
+- Use `waitFor` for waiting for state changes
+- Test both success and error cases
+
+```typescript
+// Good - Testing async operations
+it('should load tasks on mount', async () => {
+    const mockGetTasks = jest.fn(() => Promise.resolve([{ id: '1', title: 'Task' }]));
+    jest.spyOn(tasksService, 'getTasks').mockImplementation(mockGetTasks);
+
+    render(<HomeScreen />);
+
+    await waitFor(() => {
+        expect(screen.getByText('Task')).toBeTruthy();
+    });
+});
+
+it('should handle error when loading tasks fails', async () => {
+    jest.spyOn(tasksService, 'getTasks').mockRejectedValue(new Error('Failed to load'));
+
+    render(<HomeScreen />);
+
+    await waitFor(() => {
+        expect(screen.getByText('Failed to load tasks')).toBeTruthy();
+    });
+});
+```
+
+## Test Coverage
+
+### Coverage Requirements
+
+- Cover success paths, error paths, and edge cases
+- Test user interactions and state changes
+- Test Realm operations and data persistence
+- Run `npm test` locally to check coverage
+
+```bash
+# Run tests with coverage
+npm test -- --coverage
+```
+
+## Best Practices Summary
+
+1. **File Organization**: Place `.test.ts`/`.test.tsx` next to source files, match naming
+2. **Structure**: Use nested `describe` blocks, clear `it` descriptions starting with "should"
+3. **Setup/Teardown**: Use `beforeEach` to clear mocks, `afterAll` to restore
+4. **Mocking**: Mock external dependencies (Realm, Expo modules) at top, keep mocks narrow
+5. **Component Testing**: Use `render()` and `screen` from RNTL, appropriate queries for React Native
+6. **Hooks**: Use `renderHook` with wrapper for context hooks
+7. **Async**: Use `async/await`, `waitFor` for state changes, test success and error
+8. **Realm**: Mock Realm database, use in-memory instances, clean up after tests
+9. **Expo**: Mock Expo modules, provide mock implementations matching the API
+10. **Navigation**: Mock React Navigation, provide mock navigation and route props
+11. **Assertions**: Use `toBeTruthy()`, `toEqual()`, `toHaveBeenCalledWith()`
+12. **Coverage**: Cover critical paths and edge cases for tasks, notifications, and Realm operations
+13. **Test Data**: Define constants at top, use descriptive names

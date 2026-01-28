@@ -1,0 +1,591 @@
+---
+title: Common Project Rules
+description: General project-wide rules and conventions for One Percent Better
+globs:
+    - "**/*.ts"
+    - "**/*.tsx"
+alwaysApply: true
+---
+
+This document contains general rules and conventions that apply to the entire project. For specific
+rules related to TypeScript, components, screens, or other directories, refer to their respective
+rules files.
+
+**IMPORTANT**: For agent voice and value assessment guidelines, see `.cursor/rules/agent-voice.mdc`.
+Agents should evaluate the value of requests, push back when ideas don't add sufficient value,
+suggest better alternatives with ratings, and ask clarifying questions to understand underlying goals.
+
+## Project Overview
+
+This is a **React Native Expo** mobile application for One Percent Better. The primary tech stack includes:
+
+- React Native with Expo (latest version)
+- TypeScript (primary language)
+- Realm Database (local database)
+- Expo Notifications API
+- React Navigation (Stack/Tab navigator)
+- date-fns or dayjs (date handling)
+- react-native-calendars (calendar heatmap)
+- Jest and React Native Testing Library
+- ESLint and Prettier
+
+## Project Structure
+
+All source code lives in the `src/` directory with the following structure:
+
+- `src/screens/` - Screen components (HomeScreen, CreateTaskScreen, etc.)
+- `src/components/` - Reusable React Native components
+- `src/navigation/` - React Navigation setup and configuration
+- `src/services/` - Services (notifications, Realm operations, statistics)
+- `src/models/` - Realm database schemas and TypeScript interfaces
+- `src/utils/` - Utility functions (date formatting, constants, etc.)
+
+### File Naming Conventions
+
+- Use **PascalCase** for React components and screens (e.g., `TaskCard.tsx`, `HomeScreen.tsx`)
+- Use **camelCase** for helpers and utilities (e.g., `formatDate.ts`, `dateUtils.ts`)
+- Include `.test.ts` or `.test.tsx` suffix for test files
+- Keep styles colocated with the component where practical
+
+```typescript
+// Good - File names
+src/components/TaskCard.tsx
+src/components/TaskCard.test.tsx
+src/screens/HomeScreen.tsx
+src/utils/formatDate.ts
+src/utils/formatDate.test.ts
+
+// Bad - Incorrect casing or organization
+src/components/taskcard.tsx
+src/utils/format-date.ts
+```
+
+## Import Organization
+
+### Import Order
+
+Imports should be organized in the following order:
+
+1. React and React Native imports (`react`, `react-native`)
+2. Third-party libraries (Expo, React Navigation, date-fns, etc.)
+3. Internal modules (components, services, utils, models)
+4. Relative imports (`./` and `../`)
+
+```typescript
+// Good - Properly ordered imports
+import { useEffect, useState } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import * as Notifications from 'expo-notifications';
+import { TaskCard } from '@/components/TaskCard';
+import { formatDate } from '@/utils/formatDate';
+import { useHeader } from './useHeader';
+
+// Bad - Manually organized imports (let Prettier handle it)
+import { useHeader } from './useHeader';
+import { useEffect } from 'react';
+import { TaskCard } from '@/components/TaskCard';
+```
+
+### Path Aliases
+
+- Use path aliases if configured in `tsconfig.json` (e.g., `@/components`, `@/utils`)
+- Use relative imports for files in the same directory
+- Avoid deep relative imports across directories when path aliases are available
+
+```typescript
+// Good - Using path alias (if configured)
+import { TaskCard } from '@/components/TaskCard';
+import { formatDate } from '@/utils/formatDate';
+
+// Good - Relative import within same directory
+import { useNavigation } from './useNavigation';
+import { styles } from './styles';
+
+// Bad - Deep relative imports when alias available
+import { TaskCard } from '../../components/TaskCard';
+import { formatDate } from '../../../utils/formatDate';
+```
+
+## Dependencies
+
+### Package Management
+
+- Use `npm` for package management (not yarn or pnpm)
+- Lock dependencies with `package-lock.json`
+- Keep Expo SDK versions in sync
+- Do not introduce duplicate libraries for the same purpose
+
+## Development Tools
+
+### Running ESLint
+
+**IMPORTANT**: To run linting on this project, use the following method:
+
+```bash
+# From the project root directory
+npx eslint .
+```
+
+**Alternative (if in project root):**
+
+```bash
+npm run lint
+```
+
+**Note**: If you encounter "Missing script" or "ENOENT" errors, ensure you're in the correct directory and use `npx eslint .` directly.
+
+### Running Jest Tests
+
+**IMPORTANT**: To run Jest tests on this project, use the following method:
+
+```bash
+# From the project root directory
+npx jest
+```
+
+**Alternative (if in project root):**
+
+```bash
+npm run test
+```
+
+**Running specific tests:**
+
+```bash
+# Run a specific test file
+npx jest src/components/TaskCard.test.tsx
+
+# Run tests matching a pattern
+npx jest -t "TaskCard"
+
+# Run tests in watch mode
+npx jest --watch
+```
+
+**Note**: If you encounter "Missing script" or "ENOENT" errors, ensure you're in the correct directory and use `npx jest` directly.
+
+### Testing Best Practices
+
+**Environment Variables in Tests:**
+
+When testing code that reads `process.env` variables:
+
+1. **Set environment variables at the top level** of the test file (before any imports or mocks)
+2. **Set them again in `beforeAll`** before importing modules that use them
+3. **Set them in `beforeEach`** to ensure they're available for each test
+4. **Avoid `jest.resetModules()`** when using hoisted mocks (`jest.mock()`), as it can clear the mocks and cause test failures
+
+```typescript
+// Good - Setting environment variables properly
+const TEST_API_KEY = "test-key";
+
+// Set at top level before any imports
+process.env.API_KEY = TEST_API_KEY;
+
+// Mock must be hoisted
+jest.mock("expo-notifications", () => ({
+	/* ... */
+}));
+
+let notificationService;
+beforeAll(async () => {
+	// Set again before importing
+	process.env.API_KEY = TEST_API_KEY;
+	notificationService = await import("../services/notifications");
+});
+
+beforeEach(() => {
+	// Ensure it's set for each test
+	process.env.API_KEY = TEST_API_KEY;
+});
+
+// Bad - Using jest.resetModules() with hoisted mocks
+beforeAll(async () => {
+	process.env.API_KEY = TEST_API_KEY;
+	jest.resetModules(); // ❌ This can clear hoisted mocks!
+	notificationService = await import("../services/notifications");
+});
+```
+
+**Why this matters:**
+
+- Environment variables read at runtime (inside functions) need to be set before the function executes
+- Hoisted mocks (`jest.mock()`) are set up before tests run, but `jest.resetModules()` can interfere with them
+- Setting environment variables in multiple places ensures they're available regardless of module caching or test isolation
+
+### When Restarts Are Required
+
+**CRITICAL**: After making changes, you MUST explicitly inform the user if restarts are needed. This prevents confusion when code changes don't appear to work.
+
+#### Expo Development Server Restart
+
+**Restart the Expo development server when:**
+
+- New native modules are added (requires rebuilding)
+- Changes to `app.json` or `app.config.js`
+- Changes to native configuration files
+- Changes to environment variables that are read at build time
+
+**Do NOT restart when:**
+
+- Only modifying existing TypeScript/React files
+- Only updating styling or UI logic in existing components
+- Only changing data in Realm (handled automatically)
+
+**How to restart:**
+
+```bash
+# Stop the Expo server (Ctrl+C if running in terminal)
+# Then restart it:
+npm start
+# or
+expo start
+```
+
+**Always tell the user:**
+
+> "⚠️ **Expo server restart required**: Changes were made to native configuration. Please restart the Expo development server."
+
+#### After Running Tests
+
+**Important**: If you run ESLint or Jest tests and they pass, but the changes don't appear in the running application, check if a restart is needed and inform the user. Don't assume the user knows to restart services.
+
+## Performance Best Practices
+
+### Avoid Unnecessary Re-renders
+
+- Memoize expensive computations with `useMemo`
+- Memoize callbacks with `useCallback`
+- Use `React.memo` for components that receive stable props
+- Optimize FlatList with proper `keyExtractor` and `getItemLayout`
+
+### Optimize Imports
+
+- Import only what you need from libraries
+- Avoid barrel exports for large libraries
+- Use lazy loading for screens when appropriate
+
+```typescript
+// Good - Specific imports
+import { formatDate } from '@/utils/formatDate';
+import { TaskCard } from '@/components/TaskCard';
+
+// Bad - Importing everything
+import * as utils from '@/utils';
+import * as components from '@/components';
+```
+
+### Realm Database Performance
+
+- Use indexed properties for frequently queried fields
+- Batch write operations when possible
+- Close Realm instances when done
+- Use listeners efficiently and clean them up
+
+## Accessibility
+
+### Component Guidelines
+
+- Add `accessibilityLabel` props for screen readers
+- Use semantic components when possible (Button, TextInput, etc.)
+- Ensure touch targets are at least 44x44 points (iOS) or 48x48 dp (Android)
+- Test with accessibility features enabled (VoiceOver, TalkBack)
+- Provide `accessibilityHint` for complex interactions
+
+```typescript
+// Good - Accessibility props
+<TouchableOpacity
+  accessibilityLabel="Complete task"
+  accessibilityHint="Marks this task as completed"
+  accessibilityRole="button"
+>
+  <Text>Complete</Text>
+</TouchableOpacity>
+```
+
+## Error Handling
+
+### Resolving Errors vs. Suppressing Errors
+
+**CRITICAL**: When a user asks to "resolve errors" or "fix warnings", this means **fix the root cause**, NOT hide or suppress the errors.
+
+- **DO**: Fix the underlying issue that causes the error
+- **DO**: Ensure proper permissions, configuration, or data validation
+- **DO**: Wait for async operations to complete before proceeding
+- **DO**: Handle errors gracefully with proper error messages
+- **DON'T**: Suppress errors by catching and ignoring them
+- **DON'T**: Return empty values to hide errors
+- **DON'T**: Add try/catch blocks that silently swallow errors
+- **DON'T**: Use conditional logging to hide errors from console
+
+**Example - Fixing Root Cause:**
+
+```typescript
+// ✅ GOOD - Fix root cause: Ensure notification permissions before scheduling
+export async function scheduleTaskNotification(task: Task) {
+  const { status } = await Notifications.getPermissionsAsync();
+  if (status !== 'granted') {
+    throw new Error("Notification permissions not granted");
+  }
+  await Notifications.scheduleNotificationAsync({
+    content: { title: task.title },
+    trigger: { date: task.date },
+  });
+}
+
+// ❌ BAD - Suppressing errors instead of fixing root cause
+export async function scheduleTaskNotification(task: Task) {
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: { title: task.title },
+      trigger: { date: task.date },
+    });
+  } catch (err) {
+    // Silently ignore permission errors - this hides the real problem!
+    if (err?.code !== "permission-denied") {
+      throw err;
+    }
+  }
+}
+```
+
+### Consistent Error Handling
+
+- Use consistent error shapes throughout the app
+- Show user-friendly error messages
+- Log errors for debugging
+- Handle network errors gracefully
+
+```typescript
+// Error handling is standardized
+try {
+  const tasks = await getTasks();
+  // Handle success
+} catch (error) {
+  if (error instanceof Error) {
+    console.error('Error:', error.message);
+    // Show user-friendly error message
+  }
+}
+```
+
+## Code Consistency
+
+### Follow Existing Patterns
+
+- When adding new code, follow existing patterns in the codebase
+- Be consistent with naming conventions, file structure, and code style
+- If you need to deviate from a pattern, document why
+
+### Code Reviews
+
+- All code must be reviewed before merging
+- Address review comments promptly
+- Update tests and documentation when making changes
+
+### Hooks
+
+- Move all hooks to the top of the component before any conditional returns
+- Follow React Hooks rules (only call hooks at the top level)
+
+## Code Organization
+
+### Single Responsibility
+
+- Each file should have a single, clear purpose
+- Keep functions small and focused on one task
+- Extract complex logic into separate utility functions
+
+```typescript
+// Good - Focused function
+export function formatDate(date: Date): string {
+	return date.toISOString();
+}
+
+export function validateEmail(email: string): boolean {
+	return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+// Bad - Function doing too much
+export function processTask(data: TaskData) {
+	// Validates data
+	// Formats data
+	// Saves to Realm
+	// Schedules notification
+	// Updates state
+	// Shows toast
+	// ...100 lines of code
+}
+```
+
+### Separation of Concerns
+
+- Keep business logic separate from UI components
+- Extract data fetching into service functions
+- Keep Realm operations in service files
+- Keep helper functions in utility files
+
+```typescript
+// Good - Separation of concerns
+// In src/services/tasks.ts
+export async function getTasks(): Promise<Task[]> {
+    // Realm query logic
+}
+
+// In src/screens/HomeScreen.tsx
+export default function HomeScreen() {
+    const [tasks, setTasks] = useState<Task[]>([]);
+    useEffect(() => {
+        getTasks().then(setTasks);
+    }, []);
+    return <TaskList tasks={tasks} />;
+}
+
+// Bad - Mixing concerns
+export default function HomeScreen() {
+    // 50 lines of Realm query logic inline
+    // 30 lines of data transformation
+    // Then rendering
+}
+```
+
+## Comments and Documentation
+
+### When to Comment
+
+- Add comments to explain **why**, not **what**
+- Document complex algorithms or business logic
+- Add JSDoc comments for public functions and exported utilities
+- Do NOT comment obvious code
+
+```typescript
+// Good - Explaining why
+// Early return for missing task to avoid null reference errors
+if (!task) {
+    return null;
+}
+
+// Good - JSDoc for public function
+/**
+ * Formats a date to a long date string in the specified locale format.
+ * @param date - The date to format
+ * @param locale - The locale to use for formatting (default: 'en-US')
+ * @returns The formatted date string
+ */
+export function formatLongDateString(date: Date, locale = 'en-US'): string {
+    return date.toLocaleDateString(locale, {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+    });
+}
+
+// Bad - Commenting the obvious
+// Get the task title
+const taskTitle = task.title;
+
+// Loop through tasks
+for (const task of tasks) {
+    // Process the task
+    processTask(task);
+}
+```
+
+### TODO Comments
+
+- Use `TODO:` comments for planned improvements
+- Include context or reference to relevant issue/ticket when possible
+- Clean up TODOs before merging to main
+
+```typescript
+// Good - TODO with context
+// TODO: Replace with new notification API when Expo SDK 50 is released
+
+// Bad - Vague TODO
+// TODO: fix this
+```
+
+## Environment and Configuration
+
+### Environment Variables
+
+- Keep environment variables documented in `.env.example`
+- Never commit `.env` files with secrets
+- Validate required variables in a single place (e.g., `src/utils/env.ts`)
+
+```typescript
+// In src/utils/env.ts
+export const API_URL = process.env.EXPO_PUBLIC_API_URL;
+export const TIMEOUT_MS = Number(process.env.EXPO_PUBLIC_TIMEOUT_MS ?? 5000);
+```
+
+### Configuration Files
+
+- Keep configuration constants centralized in `src/utils/constants.ts`
+- Use UPPER_CASE for configuration constants
+- Export shared config objects as frozen structures
+
+```typescript
+// In src/utils/constants.ts
+export const DEFAULT_SNOOZE_MINUTES = 10;
+export const MAX_RETRIES = 3;
+
+export const appConfig = Object.freeze({
+	DEFAULT_SNOOZE_MINUTES: 10,
+	MAX_RETRIES: 3,
+});
+```
+
+## Git Workflow
+
+### Commit Messages
+
+- Write clear, descriptive commit messages
+- Use present tense ("Add feature" not "Added feature")
+- Reference issue numbers when applicable
+
+```bash
+# Good commit messages
+git commit -m "Add task completion tracking"
+git commit -m "Fix date formatting in task list"
+git commit -m "Update Realm schema for task completion #123"
+
+# Bad commit messages
+git commit -m "fix"
+git commit -m "updates"
+git commit -m "WIP"
+```
+
+### Branch Strategy
+
+- Create feature branches from main
+- Use descriptive branch names
+- Delete branches after merging
+
+```bash
+# Good branch names
+feature/task-notifications
+fix/date-formatting-bug
+refactor/task-list
+
+# Bad branch names
+temp
+test
+branch1
+```
+
+## Summary
+
+This project follows strict conventions to maintain code quality and consistency:
+
+- ✅ Use TypeScript for all code
+- ✅ Follow React Native and Expo best practices
+- ✅ Keep tests close to the code under test
+- ✅ Pre-commit hooks enforce linting and formatting
+- ✅ Write clear commit messages
+- ✅ Document complex logic with JSDoc
+- ✅ Keep functions small and focused
+- ✅ Separate concerns (UI, logic, data access)
+- ✅ Use Realm Database for local data storage
+- ✅ Follow React Navigation patterns

@@ -1,0 +1,435 @@
+---
+title: React Native and Expo Rules
+description: React Native and Expo-specific patterns, best practices, and conventions
+globs:
+    - "**/*.tsx"
+    - "**/screens/**/*.ts"
+    - "**/components/**/*.ts"
+alwaysApply: false
+---
+
+This document provides comprehensive guidance on React Native and Expo patterns for the One Percent Better mobile application.
+
+## React Native Component Patterns
+
+### Component Structure
+
+- Use React Native components (View, Text, ScrollView, etc.) instead of HTML elements
+- Use appropriate components for the use case
+- Keep components focused and reusable
+
+```typescript
+// Good - React Native component
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+
+interface TaskCardProps {
+	task: Task;
+	onComplete: (taskId: string) => void;
+}
+
+export default function TaskCard({ task, onComplete }: TaskCardProps) {
+	return (
+		<View style={styles.container}>
+			<Text style={styles.title}>{task.title}</Text>
+			<TouchableOpacity onPress={() => onComplete(task._id.toString())} style={styles.button}>
+				<Text>Complete</Text>
+			</TouchableOpacity>
+		</View>
+	);
+}
+
+const styles = StyleSheet.create({
+	container: {
+		padding: 16,
+		backgroundColor: '#fff',
+	},
+	title: {
+		fontSize: 18,
+		fontWeight: 'bold',
+	},
+	button: {
+		backgroundColor: '#007AFF',
+		padding: 12,
+		borderRadius: 8,
+	},
+});
+```
+
+### Common React Native Components
+
+- **View**: Container component (replaces `div`)
+- **Text**: Text content (replaces `span`, `p`, etc.)
+- **ScrollView**: Scrollable container
+- **FlatList**: Efficient list rendering
+- **TouchableOpacity**: Button with opacity feedback
+- **Pressable**: Modern pressable component
+- **TextInput**: Text input field
+- **Image**: Image display
+- **ActivityIndicator**: Loading spinner
+
+## Styling with StyleSheet
+
+### StyleSheet API
+
+- Always use `StyleSheet.create()` for styles
+- Define styles at the bottom of the component file
+- Use consistent spacing, colors, and typography
+- Avoid inline styles (except for dynamic values)
+
+```typescript
+// Good - Using StyleSheet
+import { StyleSheet } from 'react-native';
+
+const styles = StyleSheet.create({
+	container: {
+		flex: 1,
+		padding: 16,
+		backgroundColor: '#fff',
+	},
+	title: {
+		fontSize: 24,
+		fontWeight: 'bold',
+		marginBottom: 8,
+	},
+	button: {
+		backgroundColor: '#007AFF',
+		padding: 12,
+		borderRadius: 8,
+		alignItems: 'center',
+	},
+});
+
+// Good - Dynamic styles
+<View style={[styles.container, { backgroundColor: isActive ? '#fff' : '#f0f0f0' }]} />
+
+// Bad - Inline styles for static values
+<View style={{ padding: 16, backgroundColor: '#fff' }} />
+```
+
+### Style Best Practices
+
+- Use flexbox for layouts (`flex`, `flexDirection`, `justifyContent`, `alignItems`)
+- Use consistent spacing units (8, 16, 24, etc.)
+- Extract colors to constants
+- Use platform-specific styles when needed
+
+```typescript
+// Good - Extracted constants
+const COLORS = {
+	primary: '#007AFF',
+	background: '#fff',
+	text: '#000',
+};
+
+const SPACING = {
+	small: 8,
+	medium: 16,
+	large: 24,
+};
+
+const styles = StyleSheet.create({
+	container: {
+		padding: SPACING.medium,
+		backgroundColor: COLORS.background,
+	},
+});
+```
+
+## React Navigation
+
+### Navigation Setup
+
+- Use React Navigation for screen navigation
+- Define navigation param lists with TypeScript
+- Type navigation props properly
+
+```typescript
+// Good - Navigation setup
+import { NavigationContainer } from '@react-navigation/native';
+import { createStackNavigator } from '@react-navigation/stack';
+
+export type RootStackParamList = {
+	Home: undefined;
+	CreateTask: { taskId?: string };
+	Statistics: undefined;
+	Settings: undefined;
+};
+
+const Stack = createStackNavigator<RootStackParamList>();
+
+export default function App() {
+	return (
+		<NavigationContainer>
+			<Stack.Navigator>
+				<Stack.Screen name="Home" component={HomeScreen} />
+				<Stack.Screen name="CreateTask" component={CreateTaskScreen} />
+				<Stack.Screen name="Statistics" component={StatisticsScreen} />
+				<Stack.Screen name="Settings" component={SettingsScreen} />
+			</Stack.Navigator>
+		</NavigationContainer>
+	);
+}
+```
+
+### Navigation Usage
+
+- Use typed navigation hooks
+- Navigate with typed params
+- Handle navigation events
+
+```typescript
+// Good - Typed navigation
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
+export default function HomeScreen() {
+	const navigation = useNavigation<NavigationProp>();
+
+	const handleCreateTask = () => {
+		navigation.navigate('CreateTask');
+	};
+
+	const handleEditTask = (taskId: string) => {
+		navigation.navigate('CreateTask', { taskId });
+	};
+
+	return (
+		// ...
+	);
+}
+```
+
+## Expo Notifications
+
+### Notification Setup
+
+- Request permissions on app start
+- Configure notification handler
+- Handle notification interactions
+
+```typescript
+// Good - Notification setup
+import * as Notifications from 'expo-notifications';
+
+Notifications.setNotificationHandler({
+	handleNotification: async () => ({
+		shouldShowAlert: true,
+		shouldPlaySound: true,
+		shouldSetBadge: true,
+	}),
+});
+
+export async function requestNotificationPermissions(): Promise<boolean> {
+	const { status: existingStatus } = await Notifications.getPermissionsAsync();
+	let finalStatus = existingStatus;
+
+	if (existingStatus !== 'granted') {
+		const { status } = await Notifications.requestPermissionsAsync();
+		finalStatus = status;
+	}
+
+	return finalStatus === 'granted';
+}
+```
+
+### Scheduling Notifications
+
+- Schedule notifications for tasks
+- Use unique identifiers tied to task IDs
+- Handle notification cancellation
+
+```typescript
+// Good - Scheduling notifications
+export async function scheduleTaskNotification(task: Task): Promise<string> {
+	const notificationId = await Notifications.scheduleNotificationAsync({
+		content: {
+			title: task.title,
+			body: task.action,
+			data: { taskId: task._id.toString() },
+		},
+		trigger: {
+			date: getNotificationDate(task),
+		},
+	});
+
+	return notificationId;
+}
+
+export async function cancelTaskNotification(notificationId: string): Promise<void> {
+	await Notifications.cancelScheduledNotificationAsync(notificationId);
+}
+```
+
+### Handling Notification Interactions
+
+- Handle notification taps
+- Handle notification actions (Complete, Skip, Snooze)
+- Navigate to appropriate screen
+
+```typescript
+// Good - Handling notification interactions
+useEffect(() => {
+	const subscription = Notifications.addNotificationResponseReceivedListener(response => {
+		const taskId = response.notification.request.content.data?.taskId;
+		if (taskId) {
+			navigation.navigate('CreateTask', { taskId });
+		}
+	});
+
+	return () => subscription.remove();
+}, [navigation]);
+```
+
+## Performance Optimization
+
+### List Rendering
+
+- Use `FlatList` for long lists
+- Provide `keyExtractor` and `getItemLayout` when possible
+- Use `React.memo` for list items
+
+```typescript
+// Good - Optimized FlatList
+<FlatList
+	data={tasks}
+	keyExtractor={(item) => item._id.toString()}
+	renderItem={({ item }) => <TaskCard task={item} />}
+	getItemLayout={(data, index) => ({
+		length: ITEM_HEIGHT,
+		offset: ITEM_HEIGHT * index,
+		index,
+	})}
+/>
+```
+
+### Memoization
+
+- Use `useMemo` for expensive computations
+- Use `useCallback` for stable function references
+- Use `React.memo` for components with stable props
+
+```typescript
+// Good - Memoization
+const filteredTasks = useMemo(() => {
+	return tasks.filter(task => task.isActive);
+}, [tasks]);
+
+const handleComplete = useCallback((taskId: string) => {
+	completeTask(taskId);
+}, []);
+
+const MemoizedTaskCard = React.memo(TaskCard);
+```
+
+### Image Optimization
+
+- Use appropriate image formats
+- Optimize image sizes
+- Use `resizeMode` appropriately
+
+```typescript
+// Good - Image optimization
+<Image
+	source={{ uri: imageUrl }}
+	style={styles.image}
+	resizeMode="cover"
+/>
+```
+
+## Platform-Specific Code
+
+### Platform Detection
+
+- Use `Platform.OS` for platform detection
+- Use platform-specific styles when needed
+- Use platform-specific components
+
+```typescript
+// Good - Platform-specific code
+import { Platform, StyleSheet } from 'react-native';
+
+const styles = StyleSheet.create({
+	container: {
+		padding: 16,
+		...Platform.select({
+			ios: {
+				shadowColor: '#000',
+				shadowOffset: { width: 0, height: 2 },
+				shadowOpacity: 0.25,
+				shadowRadius: 3.84,
+			},
+			android: {
+				elevation: 5,
+			},
+		}),
+	},
+});
+```
+
+## Accessibility
+
+### Accessibility Props
+
+- Add `accessibilityLabel` for screen readers
+- Use `accessibilityRole` for semantic meaning
+- Provide `accessibilityHint` for complex interactions
+
+```typescript
+// Good - Accessibility
+<TouchableOpacity
+	accessibilityLabel="Complete task"
+	accessibilityRole="button"
+	accessibilityHint="Marks this task as completed"
+	onPress={handleComplete}
+>
+	<Text>Complete</Text>
+</TouchableOpacity>
+```
+
+### Touch Targets
+
+- Ensure touch targets are at least 44x44 points (iOS) or 48x48 dp (Android)
+- Provide adequate spacing between interactive elements
+
+```typescript
+// Good - Adequate touch target
+const styles = StyleSheet.create({
+	button: {
+		minHeight: 44, // iOS minimum
+		minWidth: 44,
+		padding: 12,
+	},
+});
+```
+
+## Error Handling
+
+### Error Boundaries
+
+- Use error boundaries for React Native components
+- Handle errors gracefully
+- Show user-friendly error messages
+
+```typescript
+// Good - Error handling
+try {
+	await scheduleNotification(task);
+} catch (error) {
+	if (error instanceof Error) {
+		Alert.alert('Error', `Failed to schedule notification: ${error.message}`);
+	}
+}
+```
+
+## Best Practices Summary
+
+1. **Components**: Use React Native components, keep focused and reusable
+2. **Styling**: Use StyleSheet API, extract constants, use flexbox
+3. **Navigation**: Define typed param lists, use typed navigation hooks
+4. **Notifications**: Request permissions, schedule with unique IDs, handle interactions
+5. **Performance**: Use FlatList, memoize expensive operations, optimize images
+6. **Platform**: Use Platform.OS for detection, platform-specific styles/components
+7. **Accessibility**: Add accessibility props, ensure adequate touch targets
+8. **Error Handling**: Handle errors gracefully, show user-friendly messages

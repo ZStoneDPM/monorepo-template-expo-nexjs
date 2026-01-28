@@ -1,0 +1,11 @@
+# Ignore native folders during EAS Build
+# This forces EAS Build to run prebuild and sync app.json properties
+# even though these folders are tracked in git
+/android
+/ios
+
+/python
+
+# IDE-specific files (not needed in builds)
+.idea/
+.cursor/
