@@ -7,7 +7,10 @@
     "dev:next": "pnpm --filter next-web dev",
     "build": "pnpm --filter bridge-types build && pnpm --filter next-web build",
     "build:next": "pnpm --filter next-web build",
-    "build:bridge": "pnpm --filter bridge-types build"
+    "build:bridge": "pnpm --filter bridge-types build",
+    "lint": "pnpm --filter next-web lint",
+    "format": "pnpm --filter next-web format",
+    "format:write": "pnpm --filter next-web format:write"
   },
   "workspaces": [
     "apps/*",

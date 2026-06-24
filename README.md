@@ -28,15 +28,17 @@ flowchart LR
 | Path                    | Description                                            |
 | ----------------------- | ------------------------------------------------------ |
 | `apps/expo-app`         | Expo (React Native) app with WebView and bridge        |
-| `apps/next-web`         | Next.js web app (App Router), deployed to external URL |
+| `apps/next-web`         | Next.js 16 web app (App Router, Tailwind CSS v4), deployed to external URL |
 | `packages/bridge-types` | Shared TypeScript types for bridge messages            |
 
 ## Prerequisites
 
-- **Node.js** 20.9+ (required for Next.js 16)
-- **pnpm** (or enable Corepack: `corepack enable`)
-- **Expo CLI** / EAS (optional, for builds)
+- **Node.js** 20.19.4+ (required for Expo SDK 56; Next.js 16 needs 20.9+)
+- **pnpm** 9+ via Corepack (`corepack enable` then `corepack prepare pnpm@9.15.0 --activate`)
+- **EAS** (recommended for Expo SDK 56 builds; Expo Go may not be available for the latest SDK on app stores)
 - iOS/Android setup for running the Expo app (simulator or device)
+
+**Note:** If `npx expo install --fix` fails with `unknown option --fix`, uninstall the legacy global CLI (`npm uninstall -g expo-cli`) and use the local CLI: `pnpm --filter expo-app exec expo install --fix`.
 
 ## External URL and internet
 
@@ -66,10 +68,12 @@ See the [Bridge](#bridge) section above and the code in `apps/expo-app/lib/bridg
    - Run locally: `pnpm dev:next` (or `pnpm --filter next-web dev`).
    - Build and deploy to your host (e.g. Vercel). Set the deployed URL as `EXPO_PUBLIC_WEBVIEW_URL` (see [External URL and internet](#external-url-and-internet)).
 
-3. **Expo** (mobile app, SDK 54):
+3. **Expo** (mobile app, SDK 56):
    - Copy `.env.example` to `.env` and set `EXPO_PUBLIC_WEBVIEW_URL` to your deployed Next.js URL.
-   - If you see Expo peer dependency warnings after install, run `npx expo install --fix` in `apps/expo-app`.
+   - After install, align native module versions if needed: `pnpm --filter expo-app exec expo install --fix`
    - Run: `pnpm dev:expo` (or `pnpm --filter expo-app start`). Open on a device or simulator and confirm the WebView loads the external URL and that the bridge works (e.g. tap "Send HELLO to React Native" in the web app and see the reply).
+
+**Stack versions (template baseline):** Expo SDK 56, React Native 0.85, React 19.2, Next.js 16.2, Tailwind CSS 4.
 
 ## Deployment
 
