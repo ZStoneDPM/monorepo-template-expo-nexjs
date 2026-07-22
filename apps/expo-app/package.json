@@ -1,18 +1,32 @@
 {
   "name": "expo-app",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "private": true,
   "main": "expo-router/entry",
   "scripts": {
-    "start": "expo start"
+    "start": "expo start",
+    "prebuild": "npx expo prebuild --clean",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "lint": "eslint .",
+    "tnc": "tsc --noEmit",
+    "check-npx": "npx expo install --check",
+    "doctor": "npx expo-doctor",
+    "checks": "pnpm run lint && pnpm run tnc && pnpm run doctor && pnpm run check-npx",
+    "bump:version": "node scripts/bump-version.js",
+    "preship": "node scripts/bump-version.js && pnpm prebuild",
+    "ship:eas:android": "eas build --profile production --platform android",
+    "ship:eas:ios": "eas build --profile production --platform ios",
+    "ship:eas": "eas build --profile production --platform all"
   },
   "dependencies": {
-    "@expo/metro-runtime": "~56.0.15",
+    "@expo/metro-runtime": "~56.0.17",
     "bridge-types": "workspace:*",
-    "expo": "~56.0.12",
-    "expo-constants": "~56.0.18",
-    "expo-linking": "~56.0.14",
-    "expo-router": "~56.2.11",
+    "expo": "~56.0.16",
+    "expo-constants": "~56.0.21",
+    "expo-linking": "~56.0.15",
+    "expo-router": "~56.2.15",
+    "expo-splash-screen": "~56.0.13",
     "expo-status-bar": "~56.0.4",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -23,8 +37,17 @@
   },
   "devDependencies": {
     "@babel/core": "^7.25.0",
+    "@eslint/js": "^9.39.2",
     "@types/react": "~19.2.14",
+    "@typescript-eslint/eslint-plugin": "^8.53.1",
+    "@typescript-eslint/parser": "^8.53.1",
     "babel-plugin-module-resolver": "^5.0.0",
+    "eslint": "^9.39.2",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-native": "^5.0.0",
+    "expo-doctor": "^1.18.21",
+    "globals": "^17.1.0",
     "typescript": "~6.0.3"
   }
 }

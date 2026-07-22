@@ -9,8 +9,15 @@
     "build:next": "pnpm --filter next-web build",
     "build:bridge": "pnpm --filter bridge-types build",
     "lint": "pnpm --filter next-web lint",
+    "lint:expo": "pnpm --filter expo-app lint",
     "format": "pnpm --filter next-web format",
-    "format:write": "pnpm --filter next-web format:write"
+    "format:write": "pnpm --filter next-web format:write",
+    "checks:expo": "pnpm --filter expo-app checks",
+    "bump:version": "pnpm --filter expo-app bump:version",
+    "prebuild:expo": "pnpm --filter expo-app prebuild",
+    "ship:eas:android": "pnpm --filter expo-app ship:eas:android",
+    "ship:eas:ios": "pnpm --filter expo-app ship:eas:ios",
+    "ship:eas": "pnpm --filter expo-app ship:eas"
   },
   "workspaces": [
     "apps/*",

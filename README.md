@@ -80,6 +80,53 @@ See the [Bridge](#bridge) section above and the code in `apps/expo-app/lib/bridg
 - **Next.js**: Deploy `apps/next-web` to Vercel, Netlify, or any Node/static host. Use the resulting URL as `EXPO_PUBLIC_WEBVIEW_URL`.
 - **Expo**: Use [EAS Build](https://docs.expo.dev/build/introduction/) to build the native app; ensure `EXPO_PUBLIC_WEBVIEW_URL` is set in your build environment.
 
+### Expo quality checks
+
+Same pattern as One Percent Better (`lint` → `tnc` → `doctor` → `check-npx`):
+
+```bash
+pnpm checks:expo
+# or individually:
+pnpm lint:expo
+pnpm --filter expo-app tnc
+pnpm --filter expo-app doctor
+pnpm --filter expo-app check-npx
+```
+
+Note: use `pnpm run doctor` (or the filter above) — bare `pnpm doctor` is pnpm’s own CLI, not expo-doctor.
+
+### Expo version bump and shipping
+
+Version lives in both `apps/expo-app/package.json` and `apps/expo-app/app.json` (`expo.version`). Keep them in sync with the bump script.
+
+```bash
+# Patch bump (default): 1.0.0 -> 1.0.1
+pnpm bump:version
+
+# Minor / major
+pnpm bump:version -- minor
+pnpm bump:version -- major
+```
+
+Ship a production build with EAS (runs from `apps/expo-app`). npm/pnpm `preship` lifecycle bumps a patch version and runs `expo prebuild --clean` before any `ship:*` script:
+
+```bash
+# One-time setup after cloning from the template
+cd apps/expo-app && npx eas-cli login && npx eas-cli init
+# Then set owner / projectId in app.json extra.eas as prompted
+
+# From repo root — patch bump + prebuild + EAS production build
+pnpm ship:eas:android
+pnpm ship:eas:ios
+pnpm ship:eas              # both platforms
+
+# Or bump only / prebuild only
+pnpm bump:version
+pnpm prebuild:expo
+```
+
+`apps/expo-app/eas.json` mirrors a typical production setup (`autoIncrement` for store build numbers, remote app version source). Replace placeholder bundle IDs and run `eas init` before the first real ship.
+
 ## Security
 
 - Use **HTTPS** for the external URL. The template uses `originWhitelist: ['https://*']`; restrict to your domain(s) if desired.

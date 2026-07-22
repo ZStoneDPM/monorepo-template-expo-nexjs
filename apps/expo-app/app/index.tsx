@@ -1,9 +1,17 @@
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, type ComponentType, type RefObject } from "react";
 import { StyleSheet, View } from "react-native";
-import { WebView } from "react-native-webview";
-import type { NativeSyntheticEvent, NativeEvent } from "react-native";
+import WebViewBase, {
+  type WebViewMessageEvent,
+  type WebViewProps,
+} from "react-native-webview";
 import Constants from "expo-constants";
 import { buildInjectScript } from "@/lib/bridge";
+
+// react-native-webview class component types resolve to `never` under React 19 + TS 6.
+type WebViewInstance = InstanceType<typeof WebViewBase>;
+const WebView = WebViewBase as unknown as ComponentType<
+  WebViewProps & { ref?: RefObject<WebViewInstance | null> }
+>;
 
 const WEBVIEW_URL =
   process.env.EXPO_PUBLIC_WEBVIEW_URL ||
@@ -11,30 +19,26 @@ const WEBVIEW_URL =
   "https://your-next-app.vercel.app";
 
 export default function WebViewScreen() {
-  const webViewRef = useRef<WebView>(null);
+  const webViewRef = useRef<WebViewInstance>(null);
 
-  const handleMessage = useCallback(
-    (event: NativeSyntheticEvent<{ data: string }>) => {
-      const { data } = event.nativeEvent;
-      try {
-        const msg = JSON.parse(data) as { type: string; payload?: unknown };
-        if (__DEV__) {
-          console.log("[Bridge from web]", msg.type, msg.payload);
-        }
-        if (msg.type === "HELLO") {
-          // Example: send a reply back to the web app
-          const script = buildInjectScript({
-            type: "HELLO_REPLY",
-            payload: { from: "react-native", ts: Date.now() },
-          });
-          webViewRef.current?.injectJavaScript(script);
-        }
-      } catch {
-        if (__DEV__) console.warn("[Bridge] Invalid JSON from web:", data);
+  const handleMessage = useCallback((event: WebViewMessageEvent): void => {
+    const { data } = event.nativeEvent;
+    try {
+      const msg = JSON.parse(data) as { type: string; payload?: unknown };
+      if (__DEV__) {
+        console.log("[Bridge from web]", msg.type, msg.payload);
       }
-    },
-    [],
-  );
+      if (msg.type === "HELLO") {
+        const script = buildInjectScript({
+          type: "HELLO_REPLY",
+          payload: { from: "react-native", ts: Date.now() },
+        });
+        webViewRef.current?.injectJavaScript(script);
+      }
+    } catch {
+      if (__DEV__) console.warn("[Bridge] Invalid JSON from web:", data);
+    }
+  }, []);
 
   return (
     <View style={styles.container}>
