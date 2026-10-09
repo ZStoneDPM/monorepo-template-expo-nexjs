@@ -73,7 +73,7 @@ See the [Bridge](#bridge) section above and the code in `apps/expo-app/lib/bridg
    - After install, align native module versions if needed: `pnpm --filter expo-app exec expo install --fix`
    - Run: `pnpm dev:expo` (or `pnpm --filter expo-app start`). Open on a device or simulator and confirm the WebView loads the external URL and that the bridge works (e.g. tap "Send HELLO to React Native" in the web app and see the reply).
 
-**Stack versions (template baseline):** Expo SDK 56, React Native 0.85, React 19.2, Next.js 16.2, Tailwind CSS 4.
+**Stack versions (template baseline):** Expo SDK 56, React Native 0.85, React 19.2, Next.js 16.4, Tailwind CSS 4.
 
 ## Deployment
 
